@@ -1,303 +1,545 @@
-#!/usr/bin/env python3
-"""
-Spaceflight_Data.csv builder
-Joins:
-  - GCAT launchlog.tsv        (base launch table)
-  - GCAT currentcat.tsv       (orbital parameters: perigee, apogee, inclination, orbit class)
-  - SpaceX API v4 /launches   (recovery type, landing pad, booster serial, reuse count, payload mass, orbit)
-  - SpaceX API v4 /payloads   (payload mass, orbit, customer)
-  - SpaceX API v4 /rockets    (propellant, engine type)
-  - SpaceX API v4 /landpads   (landing pad name/location)
-  - Hand-coded vehicle lookup (propellant/engine for non-SpaceX vehicles)
-
-Requirements: pip install requests pandas
-"""
-
+import re
+import time
+import io
 import requests
 import pandas as pd
-import io
-import time
 
-# ── Vehicle metadata (non-SpaceX, hand-coded) ─────────────────────────────────
-VEHICLE_META = {
-    # LV_Type (as it appears in GCAT): (provider, country, propellant_1, propellant_2, engine_type, reusable_s1)
-    "Falcon 9":        ("SpaceX",      "USA", "RP-1",     "LOX",  "Merlin 1D",    True),
-    "Falcon Heavy":    ("SpaceX",      "USA", "RP-1",     "LOX",  "Merlin 1D",    True),
-    "Starship":        ("SpaceX",      "USA", "Methane",  "LOX",  "Raptor",       True),
-    "New Glenn":       ("Blue Origin", "USA", "Methane",  "LOX",  "BE-4",         True),
-    "Vulcan Centaur":  ("ULA",         "USA", "LH2",      "LOX",  "BE-4",         False),
-    "Atlas V":         ("ULA",         "USA", "RP-1",     "LOX",  "RD-180",       False),
-    "Delta IV Heavy":  ("ULA",         "USA", "LH2",      "LOX",  "RS-68A",       False),
-    "Electron":        ("Rocket Lab",  "USA", "RP-1",     "LOX",  "Rutherford",   False),
-    "Antares":         ("Northrop",    "USA", "RP-1",     "LOX",  "RD-181",       False),
-    "Ariane 5":        ("ArianeGroup", "FRA", "LH2",      "LOX",  "Vulcain 2",    False),
-    "Ariane 6":        ("ArianeGroup", "FRA", "LH2",      "LOX",  "Vulcain 2.1",  False),
-    "Vega-C":          ("ArianeGroup", "ITA", "HTPB",     "N/A",  "P120C",        False),
-    "Soyuz-2.1a":      ("Roscosmos",   "RUS", "RP-1",     "LOX",  "RD-107A",      False),
-    "Soyuz-2.1b":      ("Roscosmos",   "RUS", "RP-1",     "LOX",  "RD-107A",      False),
-    "Proton-M":        ("Roscosmos",   "RUS", "UDMH",     "N2O4", "RD-275M",      False),
-    "Long March 2C":   ("CASC",        "CHN", "UDMH",     "N2O4", "YF-21C",       False),
-    "Long March 3B":   ("CASC",        "CHN", "LH2",      "LOX",  "YF-75",        False),
-    "Long March 5B":   ("CASC",        "CHN", "LH2",      "LOX",  "YF-77",        False),
-    "Long March 6":    ("CASC",        "CHN", "RP-1",     "LOX",  "YF-100",       False),
-    "Long March 6A":   ("CASC",        "CHN", "RP-1",     "LOX",  "YF-100",       False),
-    "Long March 8":    ("CASC",        "CHN", "RP-1",     "LOX",  "YF-100",       False),
-    "Zhuque-2":        ("Landspace",   "CHN", "Methane",  "LOX",  "Tianque-12",   False),
-    "PSLV":            ("ISRO",        "IND", "HTPB",     "N2O4", "Vikas",        False),
-    "GSLV Mk III":     ("ISRO",        "IND", "LH2",      "LOX",  "CE-20",        False),
-    "H-IIA":           ("JAXA",        "JPN", "LH2",      "LOX",  "LE-7A",        False),
-    "H3":              ("JAXA",        "JPN", "LH2",      "LOX",  "LE-9",         False),
-    "Epsilon":         ("JAXA",        "JPN", "HTPB",     "N/A",  "SRB-A3",       False),
-    "Gravity-1":       ("Orienspace",  "CHN", "HTPB",     "N/A",  "Solid",        False),
-}
+# Sources
 
-GCAT_LAUNCH_URL    = "https://planet4589.org/space/gcat/tsv/derived/launchlog.tsv"
-GCAT_ORBITAL_URL   = "https://planet4589.org/space/gcat/tsv/derived/currentcat.tsv"
-SPACEX_LAUNCHES    = "https://api.spacexdata.com/v4/launches"
-SPACEX_PAYLOADS    = "https://api.spacexdata.com/v4/payloads"
-SPACEX_ROCKETS     = "https://api.spacexdata.com/v4/rockets"
-SPACEX_LANDPADS    = "https://api.spacexdata.com/v4/landpads"
+GCAT_LAUNCH_URL = "https://planet4589.org/space/gcat/tsv/derived/launchlog.tsv"
+GCAT_ORBITAL_URL = "https://planet4589.org/space/gcat/tsv/derived/currentcat.tsv"
+LL2_BASE = "https://lldev.thespacedevs.com/2.2.0"
 
-def fetch_tsv(url, comment="#"):
-    print(f"  Fetching {url} ...")
+# Useful Metadata for Matching and Analysis
+
+VEHICLE_META = [
+
+    # (gcat_name_substring, provider, country, propellant_1, propellant_2, engine, reusable_s1)
+    # Most-specific entries first to avoid false substring matches.
+
+    # SpaceX
+    ("Falcon Heavy",       "SpaceX",          "USA",  "RP-1",    "LOX",  "Merlin 1D",     True),
+    ("Falcon 9",           "SpaceX",          "USA",  "RP-1",    "LOX",  "Merlin 1D",     True),
+    ("Falcon 1",           "SpaceX",          "USA",  "RP-1",    "LOX",  "Merlin 1C",     False),
+    ("Starship",           "SpaceX",          "USA",  "Methane", "LOX",  "Raptor",        True),
+
+    # Blue Origin
+
+    ("New Glenn",          "Blue Origin",     "USA",  "Methane", "LOX",  "BE-4",          True),
+    ("New Shepard",        "Blue Origin",     "USA",  "LH2",     "LOX",  "BE-3",          True),
+
+    # ULA
+
+    ("Vulcan Centaur",     "ULA",             "USA",  "LH2",     "LOX",  "BE-4",          False),
+    ("Atlas V",            "ULA",             "USA",  "RP-1",    "LOX",  "RD-180",        False),
+    ("Delta IV Heavy",     "ULA",             "USA",  "LH2",     "LOX",  "RS-68A",        False),
+    ("Delta IV",           "ULA",             "USA",  "LH2",     "LOX",  "RS-68",         False),
+    ("Delta II",           "ULA",             "USA",  "RP-1",    "LOX",  "RS-27A",        False),
+
+    # Rocket Lab
+
+    ("Electron",           "Rocket Lab",      "USA",  "RP-1",    "LOX",  "Rutherford",    False),
+    ("Neutron",            "Rocket Lab",      "USA",  "Methane", "LOX",  "Archimedes",    True),
+
+    # Northrop / Orbital
+
+    ("Antares",            "Northrop",        "USA",  "RP-1",    "LOX",  "RD-181",        False),
+    ("Pegasus",            "Northrop",        "USA",  "HTPB",    "N/A",  "Orion",         False),
+    ("Minotaur",           "Northrop",        "USA",  "HTPB",    "N/A",  "Solid",         False),
+
+    # Other US
+
+    ("Space Shuttle",      "NASA",            "USA",  "LH2",     "LOX",  "SSME",          True),
+    ("SLS",                "NASA",            "USA",  "LH2",     "LOX",  "RS-25",         False),
+    ("LauncherOne",        "Virgin Orbit",    "USA",  "RP-1",    "LOX",  "NewtonThree",   False),
+    ("Firefly Alpha",      "Firefly",         "USA",  "RP-1",    "LOX",  "Reaver",        False),
+    ("Titan",              "USAF",            "USA",  "UDMH",    "N2O4", "LR-87",         False),
+    ("Thor",               "USAF/NASA",       "USA",  "RP-1",    "LOX",  "MB-3",          False),
+    ("Atlas",              "USAF/NASA",       "USA",  "RP-1",    "LOX",  "MA-5",          False),
+    ("Delta",              "USAF/NASA",       "USA",  "RP-1",    "LOX",  "RS-27",         False),
+    ("Scout",              "NASA",            "USA",  "HTPB",    "N/A",  "Algol",         False),
+    ("Juno",               "NASA",            "USA",  "RP-1",    "LOX",  "A-7",           False),
+    ("Saturn V",           "NASA",            "USA",  "RP-1",    "LOX",  "F-1",           False),
+    ("Saturn IB",          "NASA",            "USA",  "RP-1",    "LOX",  "H-1",           False),
+    ("Saturn I",           "NASA",            "USA",  "RP-1",    "LOX",  "H-1",           False),
+    ("Jupiter C",          "NASA",            "USA",  "RP-1",    "LOX",  "A-7",           False),
+    ("Vanguard",           "NRL",             "USA",  "RP-1",    "LOX",  "GE-X-405",      False),
+    ("H-1",                "USAF/NASA",       "USA",  "RP-1",    "LOX",  "H-1",           False),
+    # Ariane / ESA
+    ("Ariane 6",           "ArianeGroup",     "FRA",  "LH2",     "LOX",  "Vulcain 2.1",   False),
+    ("Ariane 5",           "ArianeGroup",     "FRA",  "LH2",     "LOX",  "Vulcain 2",     False),
+    ("Ariane 4",           "ArianeGroup",     "FRA",  "UDMH",    "N2O4", "Viking",        False),
+    ("Ariane 3",           "ArianeGroup",     "FRA",  "UDMH",    "N2O4", "Viking",        False),
+    ("Ariane 1",           "ArianeGroup",     "FRA",  "UDMH",    "N2O4", "Viking",        False),
+    ("Vega-C",             "ArianeGroup",     "ITA",  "HTPB",    "N/A",  "P120C",         False),
+    ("Vega",               "ArianeGroup",     "ITA",  "HTPB",    "N/A",  "P80",           False),
+
+    # Roscosmos / Soviet — specific variants before generic names
+
+    ("Soyuz-2-1B",         "Roscosmos",       "RUS",  "RP-1",    "LOX",  "RD-107A/108A",  False),
+    ("Soyuz-2-1A",         "Roscosmos",       "RUS",  "RP-1",    "LOX",  "RD-107A/108A",  False),
+    ("Soyuz-2.1b",         "Roscosmos",       "RUS",  "RP-1",    "LOX",  "RD-107A/108A",  False),
+    ("Soyuz-2.1a",         "Roscosmos",       "RUS",  "RP-1",    "LOX",  "RD-107A/108A",  False),
+    ("Soyuz-FG",           "Roscosmos",       "RUS",  "RP-1",    "LOX",  "RD-107A/108A",  False),
+    ("Soyuz-U2",           "Roscosmos",       "RUS",  "RP-1",    "LOX",  "RD-107/108",    False),
+    ("Soyuz-U",            "Roscosmos",       "RUS",  "RP-1",    "LOX",  "RD-107/108",    False),
+    ("Soyuz",              "Roscosmos",       "RUS",  "RP-1",    "LOX",  "RD-107/108",    False),
+    ("Proton-M",           "Roscosmos",       "RUS",  "UDMH",    "N2O4", "RD-275M",       False),
+    ("Proton-K",           "Roscosmos",       "RUS",  "UDMH",    "N2O4", "RD-253",        False),
+    ("Proton",             "Roscosmos",       "RUS",  "UDMH",    "N2O4", "RD-253",        False),
+    ("Rokot",              "Roscosmos",       "RUS",  "UDMH",    "N2O4", "RD-0233",       False),
+    ("Angara",             "Roscosmos",       "RUS",  "RP-1",    "LOX",  "RD-191",        False),
+    ("Zenit",              "Yuzhnoye",        "UKR",  "RP-1",    "LOX",  "RD-171",        False),
+    ("Kosmos 11K65M",      "Roscosmos",       "RUS",  "UDMH",    "N2O4", "RD-119",        False),
+    ("Kosmos 11K63",       "Roscosmos",       "RUS",  "UDMH",    "N2O4", "RD-119",        False),
+    ("Kosmos",             "Roscosmos",       "RUS",  "UDMH",    "N2O4", "RD-119",        False),
+    ("Tsiklon-3",          "Yuzhnoye",        "UKR",  "UDMH",    "N2O4", "RD-261",        False),
+    ("Tsiklon-2",          "Yuzhnoye",        "UKR",  "UDMH",    "N2O4", "RD-251",        False),
+    ("Molniya",            "Roscosmos",       "RUS",  "RP-1",    "LOX",  "RD-107/108",    False),
+    ("Voskhod",            "Roscosmos",       "RUS",  "RP-1",    "LOX",  "RD-107/108",    False),
+    ("Vostok",             "Roscosmos",       "RUS",  "RP-1",    "LOX",  "RD-107/108",    False),
+    ("Dnepr",              "Roscosmos",       "RUS",  "UDMH",    "N2O4", "RD-264",        False),
+    ("Strela",             "Roscosmos",       "RUS",  "UDMH",    "N2O4", "RD-268",        False),
+    ("R-36O",              "Yuzhnoye",        "UKR",  "UDMH",    "N2O4", "RD-251",        False),
+
+    # China — specific before generic
+
+    ("Chang Zheng 5B",     "CASC",            "CHN",  "LH2",     "LOX",  "YF-77",         False),
+    ("Chang Zheng 5",      "CASC",            "CHN",  "LH2",     "LOX",  "YF-77",         False),
+    ("Chang Zheng 7A",     "CASC",            "CHN",  "RP-1",    "LOX",  "YF-100",        False),
+    ("Chang Zheng 7",      "CASC",            "CHN",  "RP-1",    "LOX",  "YF-100",        False),
+    ("Chang Zheng 6A",     "CASC",            "CHN",  "RP-1",    "LOX",  "YF-100",        False),
+    ("Chang Zheng 6",      "CASC",            "CHN",  "RP-1",    "LOX",  "YF-100",        False),
+    ("Chang Zheng 8",      "CASC",            "CHN",  "RP-1",    "LOX",  "YF-100",        False),
+    ("Chang Zheng 3B",     "CASC",            "CHN",  "LH2",     "LOX",  "YF-75",         False),
+    ("Chang Zheng 3A",     "CASC",            "CHN",  "LH2",     "LOX",  "YF-75",         False),
+    ("Chang Zheng 3",      "CASC",            "CHN",  "LH2",     "LOX",  "YF-75",         False),
+    ("Chang Zheng 4C",     "CASC",            "CHN",  "UDMH",    "N2O4", "YF-21C",        False),
+    ("Chang Zheng 4B",     "CASC",            "CHN",  "UDMH",    "N2O4", "YF-21C",        False),
+    ("Chang Zheng 4",      "CASC",            "CHN",  "UDMH",    "N2O4", "YF-21C",        False),
+    ("Chang Zheng 2F",     "CASC",            "CHN",  "UDMH",    "N2O4", "YF-20B",        False),
+    ("Chang Zheng 2D",     "CASC",            "CHN",  "UDMH",    "N2O4", "YF-21C",        False),
+    ("Chang Zheng 2C",     "CASC",            "CHN",  "UDMH",    "N2O4", "YF-21C",        False),
+    ("Chang Zheng 2",      "CASC",            "CHN",  "UDMH",    "N2O4", "YF-21C",        False),
+    ("Chang Zheng 11",     "CASC",            "CHN",  "HTPB",    "N/A",  "Solid",         False),
+    ("Long March",         "CASC",            "CHN",  "UDMH",    "N2O4", "YF-series",     False),
+    ("Lijian",             "CASC",            "CHN",  "RP-1",    "LOX",  "YF-100",        False),
+    ("Jielong",            "CASC",            "CHN",  "HTPB",    "N/A",  "Solid",         False),
+    ("Kuaizhou",           "CASIC",           "CHN",  "HTPB",    "N/A",  "Solid",         False),
+    ("Gravity-1",          "Orienspace",      "CHN",  "HTPB",    "N/A",  "Solid",         False),
+    ("Zhuque-2",           "Landspace",       "CHN",  "Methane", "LOX",  "Tianque-12",    False),
+    ("Hyperbola-1",        "iSpace",          "CHN",  "HTPB",    "N/A",  "Solid",         False),
+    ("Ceres-1",            "Galactic Energy", "CHN",  "HTPB",    "N/A",  "Solid",         False),
+    ("Gushenxing",         "CAS Space",       "CHN",  "HTPB",    "N/A",  "Solid",         False),
+    ("Shuang Quxian",      "Galactic Energy", "CHN",  "Methane", "LOX",  "Solid",         False),
+    ("Feng Bao",           "CASC",            "CHN",  "UDMH",    "N2O4", "YF-20",         False),
+
+    # India
+
+    ("GSLV Mk III",        "ISRO",            "IND",  "LH2",     "LOX",  "CE-20",         False),
+    ("LVM3",               "ISRO",            "IND",  "LH2",     "LOX",  "CE-20",         False),
+    ("GSLV",               "ISRO",            "IND",  "UDMH",    "N2O4", "Vikas",         False),
+    ("PSLV",               "ISRO",            "IND",  "HTPB",    "N2O4", "Vikas",         False),
+    ("SSLV",               "ISRO",            "IND",  "HTPB",    "N/A",  "Solid",         False),
+
+    # Japan
+
+    ("H3",                 "JAXA",            "JPN",  "LH2",     "LOX",  "LE-9",          False),
+    ("H-IIB",              "JAXA",            "JPN",  "LH2",     "LOX",  "LE-7A",         False),
+    ("H-IIA",              "JAXA",            "JPN",  "LH2",     "LOX",  "LE-7A",         False),
+    ("H-II",               "JAXA",            "JPN",  "LH2",     "LOX",  "LE-7",          False),
+    ("H-1",                "JAXA",            "JPN",  "RP-1",    "LOX",  "MB-3",          False),
+    ("N-2",                "JAXA",            "JPN",  "RP-1",    "LOX",  "MB-3",          False),
+    ("N-1",                "JAXA",            "JPN",  "RP-1",    "LOX",  "MB-3",          False),
+    ("Epsilon",            "JAXA",            "JPN",  "HTPB",    "N/A",  "SRB-A3",        False),
+    ("M-V",                "JAXA",            "JPN",  "HTPB",    "N/A",  "M-14",          False),
+    ("SS-520",             "JAXA",            "JPN",  "HTPB",    "N/A",  "Solid",         False),
+
+    # Iran
+
+    ("Qased",              "IRGC",            "IRN",  "UDMH",    "N2O4", "Solid",         False),
+    ("Safir",              "ISA",             "IRN",  "UDMH",    "N2O4", "Safir",         False),
+    ("Simorgh",            "ISA",             "IRN",  "UDMH",    "N2O4", "Simorgh",       False),
+
+    # Israel
+
+    ("Shavit",             "IAI",             "ISR",  "HTPB",    "N/A",  "Solid",         False),
+
+]
+
+# Data Fetching/Parsing Functions
+
+def get_vehicle_meta(vname):
+
+    vl = str(vname).strip().lower()
+
+    for key, provider, country, p1, p2, engine, reusable in VEHICLE_META:
+
+        if key.lower() in vl:
+            return provider, country, p1, p2, engine, reusable
+
+    return None, None, None, None, None, None
+
+def fetch_tsv(url):
+
     r = requests.get(url, timeout=30)
     r.raise_for_status()
-    lines = [l for l in r.text.splitlines() if not l.startswith(comment)]
-    return pd.read_csv(io.StringIO("\n".join(lines)), sep="\t", low_memory=False)
 
-def fetch_json(url):
-    print(f"  Fetching {url} ...")
-    r = requests.get(url, timeout=30)
-    r.raise_for_status()
-    return r.json()
+    lines = r.text.splitlines()
+    header_found = False
 
-# ── 1. GCAT launch log ─────────────────────────────────────────────────────────
-print("\n[1/5] Loading GCAT launch log...")
+    kept = []
+
+    for line in lines:
+
+        if line.startswith("#") and not header_found:
+
+            kept.append(line[1:].lstrip())
+            header_found = True
+
+        elif line.startswith("#"):
+
+            continue
+
+        else:
+
+            kept.append(line)
+
+    df = pd.read_csv(io.StringIO("\n".join(kept)), sep="\t", low_memory=False)
+    df.columns = df.columns.str.strip()
+
+    return df
+
+
+def fetch_ll2_all(endpoint, params=None, delay=6):
+
+    base_params = {"limit": 100, "offset": 0}
+
+    if params:
+        base_params.update(params)
+
+    url = f"{LL2_BASE}/{endpoint}/"
+
+    results = []
+    page = 0
+
+    while url:
+
+        page += 1
+        print(f"    page {page} ({len(results)} records)...", end="\r")
+
+        for attempt in range(6):
+
+            r = requests.get(url, params=base_params, timeout=30)
+
+            if r.status_code == 429:
+
+                wait = 30 * (2 ** attempt)
+
+                print(f"\n    rate limited — waiting {wait}s (attempt {attempt+1}/6)...")
+                time.sleep(wait)
+
+                continue
+
+            r.raise_for_status()
+
+            break
+
+        else:
+
+            raise RuntimeError("Exceeded retry limit on 429 responses")
+
+        data = r.json()
+
+        results.extend(data.get("results", []))
+        next_url = data.get("next")
+
+        if next_url:
+
+            url = next_url
+            base_params = None
+
+            time.sleep(delay)
+
+        else:
+
+            url = None
+
+    print(f"    done — {len(results)} records fetched        ")
+    return results
+
+def parse_success(code):
+
+    c = str(code).strip()
+
+    if c.startswith("OS"): # on-time success (e.g. payload deployed to target orbit)
+        return True
+
+    if c.startswith("OF"): # failure on the ground (e.g. relight failure, explosion)
+        return False
+
+    return None
+
+def piece_to_tag(piece):
+
+    p = str(piece).strip()
+    m = re.match(r"^(\d{4}\s+[A-Z0-9]+(?:\s+[A-Z0-9]+)?)\s+\d+\w*$", p)
+
+    if m:
+        return m.group(1).strip()
+
+    m2 = re.match(r"^(\d{4}-\d+)[A-Z]\w*$", p)
+
+    if m2:
+        return m2.group(1)
+
+    m3 = re.match(r"^(\d{4}-\d+)$", p)
+
+    if m3:
+        return m3.group(1)
+
+    return p
+
+
+# 1. GCAT launch log
+
+print("[1/5] Loading GCAT launch log...")
+
 gcat = fetch_tsv(GCAT_LAUNCH_URL)
-gcat.columns = gcat.columns.str.strip()
 
-# Keep one row per launch (primary payload row — Type starts with 'P ')
-gcat_primary = gcat[gcat["Type"].str.startswith("P", na=False)].copy()
+gcat_primary = gcat[gcat["Type"].str.strip().str.startswith("P", na=False)].copy()
+gcat_primary["Launch_Tag"] = gcat_primary["Launch_Tag"].str.strip()
 gcat_primary = gcat_primary.drop_duplicates(subset="Launch_Tag", keep="first")
 
-# Parse launch date to just YYYY-MM-DD
-gcat_primary["launch_date"] = gcat_primary["Launch_Date"].str.extract(r"(\d{4}\s+\w+\s+\d+)")[0]
-try:
-    gcat_primary["launch_date"] = pd.to_datetime(gcat_primary["launch_date"], format="%Y %b %d", errors="coerce")
-except Exception:
-    pass
+gcat_primary["launch_date"] = pd.to_datetime(gcat_primary["Launch_Date"].str.extract(r"(\d{4}\s+\w+\s+\d+)")[0], format="%Y %b %d", errors="coerce").dt.normalize().dt.tz_localize(None)
+gcat_primary["launch_success"] = gcat_primary["Launch_Code"].apply(parse_success)
 
-# Derive launch success from Launch_Code: OS=success, OF=failure
-gcat_primary["launch_success"] = gcat_primary["Launch_Code"].str.startswith("OS")
+meta_list = gcat_primary["LV_Type"].apply(get_vehicle_meta).tolist()
+gcat_primary[["provider", "vehicle_country", "propellant_1", "propellant_2", "engine_type", "reusable_first_stage"]] = pd.DataFrame( meta_list, index=gcat_primary.index)
 
-# ── 2. GCAT orbital parameters ────────────────────────────────────────────────
-print("\n[2/5] Loading GCAT orbital catalog...")
+n_match = gcat_primary["provider"].notna().sum()
+print(f"  {len(gcat_primary)} primary rows, {n_match} vehicle meta matched ({100*n_match/len(gcat_primary):.1f}%)")
+
+# 2. GCAT orbital catalog
+
+print("[2/5] Loading GCAT orbital catalog...")
+
 orb = fetch_tsv(GCAT_ORBITAL_URL)
-orb.columns = orb.columns.str.strip()
 
-# Keep only primary payloads (Type starts with 'P') and deduplicate by Piece (= Launch_Tag + piece letter)
-orb_primary = orb[orb["Type"].str.startswith("P", na=False)].copy()
+orb_p = orb[orb["Type"].str.strip().str.startswith("P", na=False)].copy()
+orb_p = orb_p.copy()
 
-# Extract Launch_Tag from Piece column (first token, e.g. "2023 ALP 1" -> "2023 ALP")
-orb_primary["Launch_Tag"] = orb_primary["Piece"].str.extract(r"^(\d{4}[\s\-]\w+(?:\s+\w+)?)")
+orb_p["Launch_Tag"] = orb_p["Piece"].apply(piece_to_tag)
 
-# For the join, keep key orbital parameters
-orb_keep = orb_primary[["Launch_Tag","Perigee","Apogee","Inc","OpOrbit"]].copy()
-orb_keep.columns = ["Launch_Tag","perigee_km","apogee_km","inclination_deg","orbit_class"]
-orb_keep = orb_keep.drop_duplicates(subset="Launch_Tag", keep="first")
+for col in ["Perigee", "Apogee", "Inc"]:
+    orb_p[col] = pd.to_numeric(orb_p[col].astype(str).str.strip(), errors="coerce")
 
-# ── 3. SpaceX API ─────────────────────────────────────────────────────────────
-print("\n[3/5] Loading SpaceX API data...")
-sx_launches_raw = fetch_json(SPACEX_LAUNCHES)
-sx_payloads_raw = fetch_json(SPACEX_PAYLOADS)
-sx_rockets_raw  = fetch_json(SPACEX_ROCKETS)
-sx_landpads_raw = fetch_json(SPACEX_LANDPADS)
+orb_keep = (
+    orb_p[["Launch_Tag", "Perigee", "Apogee", "Inc", "OpOrbit"]]
+    .rename(columns={"Perigee": "perigee_km", "Apogee": "apogee_km", "Inc": "inclination_deg", "OpOrbit": "orbit_class"})
+    .dropna(subset=["Launch_Tag"])
+    .drop_duplicates(subset="Launch_Tag", keep="first")
+)
 
-# Build lookup dicts
-payload_map = {p["id"]: p for p in sx_payloads_raw}
-rocket_map  = {r["id"]: r for r in sx_rockets_raw}
-landpad_map = {lp["id"]: lp for lp in sx_landpads_raw}
+overlap = len(set(gcat_primary["Launch_Tag"]) & set(orb_keep["Launch_Tag"]))
+print(f"  {len(orb_keep)} orbital records, {overlap} keys overlap with launch log")
 
-sx_rows = []
-for lx in sx_launches_raw:
-    date_str = lx.get("date_utc","")
+# 3. Launch Library 2
+
+print("[3/5] Loading Launch Library 2...")
+print("  Fetching all completed launches (status: success, failure, partial)...")
+
+ll2_raw = fetch_ll2_all("launch", params={"mode": "detailed", "ordering": "-net", "status__ids": "3,4,7"})
+
+print("  Fetching landing vessel data from /landings/...")
+landings_raw = fetch_ll2_all("landings", params={"ordering": "-id"})
+
+vessel_lookup = {}
+
+for ld in landings_raw:
+
+    loc = ld.get("landing_location") or {}
+    name = loc.get("name") or loc.get("abbrev")
+    fs = ld.get("firststage") or {}
+    launcher = fs.get("launcher") or {}
+    serial = launcher.get("serial_number")
+    flight_n = fs.get("launcher_flight_number")
+
+    if serial and flight_n and name:
+        vessel_lookup[(serial, flight_n)] = name
+
+print(f"  Vessel lookup: {len(vessel_lookup)} entries")
+
+ll2_rows = []
+
+for lx in ll2_raw:
+
     try:
-        launch_date = pd.to_datetime(date_str).date()
+        launch_date = pd.to_datetime(lx.get("net", ""), utc=True).tz_convert(None).normalize()
     except Exception:
-        launch_date = None
+        launch_date = pd.NaT
 
-    # Rocket / propellant
-    rocket_id   = lx.get("rocket")
-    rocket_info = rocket_map.get(rocket_id, {})
-    engines     = rocket_info.get("engines", {})
-    propellant_1 = engines.get("propellant_1", "")
-    propellant_2 = engines.get("propellant_2", "")
-    engine_type  = f"{engines.get('type','')} {engines.get('version','')}".strip()
+    mission = lx.get("mission") or {}
+    orbit_info = mission.get("orbit") or {}
+    lsp = lx.get("launch_service_provider") or {}
+    pad = lx.get("pad") or {}
+    location = pad.get("location") or {}
+    status = lx.get("status") or {}
+    rocket = lx.get("rocket") or {}
+    stages = rocket.get("launcher_stage") or []
+    launcher_stage = stages[0] if stages else {}
 
-    # Core / recovery
-    cores = lx.get("cores", [])
-    core = cores[0] if cores else {}
-    booster_serial   = core.get("core")          # SpaceX ID string; real serial (B10xx) in separate cores endpoint
-    booster_flight_n = core.get("flight")
-    reused           = core.get("reused")
-    landing_attempt  = core.get("landing_attempt")
-    landing_success  = core.get("landing_success")
-    landing_type     = core.get("landing_type")  # RTLS, ASDS, Ocean
-    landpad_id       = core.get("landpad")
-    landpad_name     = landpad_map.get(landpad_id, {}).get("full_name") if landpad_id else None
-    gridfins         = core.get("gridfins")
-    legs             = core.get("legs")
+    booster_serial = None
+    booster_flight_n = None
+    booster_reused = None
+    recovery_attempted = None
+    recovery_success = None
+    recovery_type = None
+    recovery_vessel = None
 
-    # Payload
-    payload_ids  = lx.get("payloads", [])
-    payload_id   = payload_ids[0] if payload_ids else None
-    payload_info = payload_map.get(payload_id, {}) if payload_id else {}
-    payload_mass_kg = payload_info.get("mass_kg")
-    orbit            = payload_info.get("orbit")
-    customers        = ", ".join(payload_info.get("customers", []))
-    payload_type     = payload_info.get("type")
+    if launcher_stage:
 
-    # Orbit params (SpaceX payload has these when available)
-    op = payload_info.get("orbit_params", {}) or {}
-    sx_perigee   = op.get("periapsis_km")
-    sx_apogee    = op.get("apoapsis_km")
-    sx_incl      = op.get("inclination_deg")
+        launcher = launcher_stage.get("launcher") or {}
+        booster_serial = launcher.get("serial_number")
+        booster_flight_n = launcher_stage.get("launcher_flight_number")
+        booster_reused = launcher_stage.get("reused")
+        landing = launcher_stage.get("landing") or {}
+        recovery_attempted = landing.get("attempt")
+        recovery_success = landing.get("success")
+        landing_type_info = landing.get("type") or {}
+        recovery_type = landing_type_info.get("abbrev")
+        landing_loc = landing.get("landing_location") or {}
 
-    sx_rows.append({
-        "sx_launch_id":      lx.get("id"),
-        "sx_flight_number":  lx.get("flight_number"),
-        "sx_mission_name":   lx.get("name"),
-        "launch_date_sx":    launch_date,
-        "vehicle_name":      rocket_info.get("name"),
-        "launch_site":       lx.get("launchpad"),
-        "launch_success_sx": lx.get("success"),
-        "details":           lx.get("details"),
-        "propellant_1":      propellant_1,
-        "propellant_2":      propellant_2,
-        "engine_type":       engine_type,
-        "booster_serial":    booster_serial,
-        "booster_flight_n":  booster_flight_n,
-        "booster_reused":    reused,
-        "gridfins":          gridfins,
-        "legs":              legs,
-        "recovery_attempted":landing_attempt,
-        "recovery_success":  landing_success,
-        "recovery_type":     landing_type,
-        "recovery_vessel":   landpad_name,
-        "payload_mass_kg":   payload_mass_kg,
-        "target_orbit":      orbit,
-        "customers":         customers,
-        "payload_type":      payload_type,
-        "sx_perigee_km":     sx_perigee,
-        "sx_apogee_km":      sx_apogee,
-        "sx_inclination":    sx_incl,
+        recovery_vessel = (
+            landing_loc.get("name")
+            or landing_loc.get("abbrev")
+            or vessel_lookup.get((booster_serial, booster_flight_n))
+        )
+
+    ll2_rows.append({
+        "ll2_date":           launch_date,
+        "ll2_name":           lx.get("name"),
+        "ll2_status":         status.get("abbrev"),
+        "ll2_provider":       lsp.get("name"),
+        "ll2_pad":            pad.get("name"),
+        "ll2_location":       location.get("name"),
+        "ll2_lat":            pad.get("latitude"),
+        "ll2_lon":            pad.get("longitude"),
+        "ll2_orbit":          orbit_info.get("abbrev"),
+        "ll2_orbit_name":     orbit_info.get("name"),
+        "ll2_mission_type":   mission.get("type"),
+        "ll2_mission_desc":   mission.get("description"),
+        "booster_serial":     booster_serial,
+        "booster_flight_n":   booster_flight_n,
+        "booster_reused":     booster_reused,
+        "recovery_attempted": recovery_attempted,
+        "recovery_success":   recovery_success,
+        "recovery_type":      recovery_type,
+        "recovery_vessel":    recovery_vessel,
     })
 
-sx_df = pd.DataFrame(sx_rows)
-sx_df["launch_date_sx"] = pd.to_datetime(sx_df["launch_date_sx"], errors="coerce")
+ll2_df = pd.DataFrame(ll2_rows)
+ll2_df["ll2_date"] = pd.to_datetime(ll2_df["ll2_date"], errors="coerce").dt.normalize()
 
-# ── 4. Join GCAT launch log + orbital params ──────────────────────────────────
-print("\n[4/5] Joining tables...")
-gcat_merged = gcat_primary.merge(orb_keep, on="Launch_Tag", how="left")
+rec_filled = ll2_df["recovery_type"].notna().sum()
+print(f"  {len(ll2_df)} LL2 records, {rec_filled} with recovery data")
 
-# Rename GCAT columns to clean names
-gcat_merged = gcat_merged.rename(columns={
-    "Launch_Tag":   "launch_tag",
-    "LV_Type":      "vehicle_name",
-    "Agency":       "agency",
-    "Launch_Site":  "launch_site",
-    "Launch_Pad":   "launch_pad",
-    "Platform":     "platform",
-    "Launch_Code":  "launch_code",
-    "LVState":      "vehicle_country",
-    "Mission":      "mission_name",
-    "Apogee":       "gcat_apogee_km",   # raw from launch table (target apogee)
+# 4. Join
+print("[4/5] Joining tables...")
+
+base = gcat_primary.merge(orb_keep, on="Launch_Tag", how="left")
+print(f"  Orbital params filled: {base['perigee_km'].notna().sum()}/{len(base)}")
+
+base = base.rename(columns={
+    "Launch_Tag":  "launch_tag",
+    "LV_Type":     "vehicle_name",
+    "Agency":      "launch_agency",
+    "Launch_Site": "launch_site",
+    "Launch_Pad":  "launch_pad",
+    "Platform":    "platform",
+    "Launch_Code": "launch_code",
+    "LVState":     "lv_state",
+    "PLName":      "payload_name",
+    "Name":        "mission_name",
+    "SatOwner":    "sat_owner",
+    "SatState":    "sat_state",
+    "Flight_ID":   "flight_id",
 })
 
-# Add vehicle metadata for non-SpaceX
-def get_vehicle_meta(vname):
-    for k, v in VEHICLE_META.items():
-        if k.lower() in str(vname).lower():
-            return v
-    return (None, None, None, None, None, None)
+merged = base.merge(ll2_df, left_on="launch_date", right_on="ll2_date", how="left")
+print(f"  LL2 matched: {merged['ll2_name'].notna().sum()}/{len(merged)}")
 
-meta_cols = ["provider","country","propellant_1","propellant_2","engine_type","reusable_s1"]
-gcat_merged[meta_cols] = pd.DataFrame(
-    gcat_merged["vehicle_name"].apply(get_vehicle_meta).tolist(),
-    index=gcat_merged.index
-)
+merged["orbit_class"] = merged["orbit_class"].combine_first(merged["ll2_orbit"])
 
-# ── 5. Join SpaceX enrichment onto GCAT rows ──────────────────────────────────
-# Match on date (GCAT launch_date) — SpaceX launches are unique per day
-gcat_merged["launch_date_dt"] = pd.to_datetime(gcat_merged["launch_date"], errors="coerce")
-sx_df_slim = sx_df.copy()
+lox_pattern = r"(?i)^(liquid oxygen|lox)$"
+bad = merged["propellant_1"].str.match(lox_pattern, na=False)
 
-merged = gcat_merged.merge(
-    sx_df_slim,
-    left_on="launch_date_dt",
-    right_on="launch_date_sx",
-    how="left",
-    suffixes=("_gcat","_sx")
-)
+if bad.any():
+    merged.loc[bad, ["propellant_1", "propellant_2"]] = \
+        merged.loc[bad, ["propellant_2", "propellant_1"]].values
 
-# Coalesce overlapping columns: prefer SpaceX value when available
-def coalesce(a, b):
-    return a.combine_first(b)
+merged = merged.drop_duplicates(subset="launch_tag", keep="first")
 
-# Consolidate perigee/apogee/inclination: prefer GCAT orbital catalog, fallback SpaceX
-merged["perigee_km_final"]     = coalesce(merged.get("perigee_km", pd.Series(dtype=float)),
-                                          merged.get("sx_perigee_km", pd.Series(dtype=float)))
-merged["apogee_km_final"]      = coalesce(merged.get("apogee_km", pd.Series(dtype=float)),
-                                          merged.get("sx_apogee_km", pd.Series(dtype=float)))
-merged["inclination_deg_final"]= coalesce(merged.get("inclination_deg", pd.Series(dtype=float)),
-                                          merged.get("sx_inclination", pd.Series(dtype=float)))
+# 5. Output
+print("[5/5] Building output...")
 
-# ── 6. Build final clean output ───────────────────────────────────────────────
-print("\n[5/5] Building final CSV...")
+merged["has_orbital_params"] = merged["perigee_km"].notna()
+merged["has_recovery_data"]  = merged["recovery_type"].notna()
+merged["data_complete"]      = merged["has_orbital_params"] & merged["has_recovery_data"]
 
-output_cols = {
+FINAL_COLS = {
     "launch_tag":           "launch_tag",
-    "launch_date_dt":       "launch_date",
-    "vehicle_name_gcat":    "vehicle_name",
+    "launch_date":          "launch_date",
+    "vehicle_name":         "vehicle_name",
     "provider":             "provider",
-    "country":              "vehicle_country",
-    "engine_type_gcat":     "engine_type",
-    "propellant_1_gcat":    "propellant_1",
-    "propellant_2_gcat":    "propellant_2",
-    "reusable_s1":          "reusable_first_stage",
-    "agency":               "launch_agency",
+    "vehicle_country":      "vehicle_country",
+    "engine_type":          "engine_type",
+    "propellant_1":         "propellant_1",
+    "propellant_2":         "propellant_2",
+    "reusable_first_stage": "reusable_first_stage",
+    "launch_agency":        "launch_agency",
+    "lv_state":             "lv_state",
     "launch_site":          "launch_site",
     "launch_pad":           "launch_pad",
+    "ll2_pad":              "ll2_pad",
+    "ll2_location":         "ll2_location",
+    "ll2_lat":              "launch_lat",
+    "ll2_lon":              "launch_lon",
+    "platform":             "platform",
     "launch_success":       "launch_success",
-    "sx_mission_name":      "mission_name",
-    "customers":            "customers",
-    "payload_type":         "payload_type",
-    "payload_mass_kg":      "payload_mass_kg",
-    "target_orbit":         "target_orbit",
+    "ll2_status":           "ll2_status",
+    "flight_id":            "flight_id",
+    "mission_name":         "mission_name",
+    "payload_name":         "payload_name",
+    "sat_owner":            "sat_owner",
+    "sat_state":            "sat_state",
+    "ll2_name":             "ll2_mission_name",
+    "ll2_mission_type":     "mission_type",
+    "ll2_mission_desc":     "mission_description",
     "orbit_class":          "orbit_class",
-    "perigee_km_final":     "perigee_km",
-    "apogee_km_final":      "apogee_km",
-    "inclination_deg_final":"inclination_deg",
+    "ll2_orbit_name":       "orbit_name",
+    "perigee_km":           "perigee_km",
+    "apogee_km":            "apogee_km",
+    "inclination_deg":      "inclination_deg",
     "booster_serial":       "booster_serial",
     "booster_flight_n":     "booster_flight_number",
     "booster_reused":       "booster_reused",
-    "gridfins":             "gridfins",
-    "legs":                 "landing_legs",
     "recovery_attempted":   "recovery_attempted",
     "recovery_success":     "recovery_success",
     "recovery_type":        "recovery_type",
     "recovery_vessel":      "recovery_vessel",
-    "details":              "mission_notes",
+    "has_orbital_params":   "has_orbital_params",
+    "has_recovery_data":    "has_recovery_data",
+    "data_complete":        "data_complete",
 }
 
-# Select only columns that actually exist in merged
-available = {k: v for k, v in output_cols.items() if k in merged.columns}
-final = merged[list(available.keys())].rename(columns=available)
+available = {k: v for k, v in FINAL_COLS.items() if k in merged.columns}
+final = merged[list(available.keys())].rename(columns=available).copy()
 
-# Clean whitespace in string columns
+final.replace({"-": pd.NA, "-.1": pd.NA, "-.2": pd.NA}, inplace=True)
+
 for col in final.select_dtypes(include="object").columns:
-    final[col] = final[col].str.strip()
+    final[col] = final[col].apply(lambda x: x.strip() if isinstance(x, str) else x)
 
 final.to_csv("Spaceflight_Data.csv", index=False)
-print(f"\n✅ Done! Spaceflight_Data.csv written with {len(final):,} rows x {len(final.columns)} columns.")
-print("Columns:", list(final.columns))
+print(f"Done. {len(final):,} rows x {len(final.columns)} columns -> Spaceflight_Data.csv")
