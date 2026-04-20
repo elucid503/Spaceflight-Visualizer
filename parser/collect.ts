@@ -272,6 +272,24 @@ function parseDurationDays(dur: string | null | undefined): number | null {
 
 }
 
+/** Coerce API numeric or numeric-string fields to a finite number, else null */
+function coerceFiniteNumber(v: unknown): number | null {
+
+  if (v === null || v === undefined) return null;
+
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+
+  if (typeof v === "string") {
+
+    const n = parseFloat(v.trim());
+    return Number.isFinite(n) ? n : null;
+
+  }
+
+  return null;
+
+}
+
 // Launch Transform
 
 const OUTCOME_MAP: Record<number, string> = {
@@ -446,14 +464,19 @@ function transformLaunch(launch: LL2Launch): LaunchRecord {
 
   };
 
-  // Orbit Specifics
+  // Orbit Specifics  (LL2 `mission.orbit` is usually id/name/only; apogee may come from launcher config)
+
+  const orb = mission?.orbit ?? null;
+  const orbitApogee = coerceFiniteNumber(orb?.apogee);
+  const cfgApogee = coerceFiniteNumber(cfg.apogee);
+
   const orbitSpecifics: OrbitSpecifics = {
 
-    orbit_name:         mission?.orbit?.name ?? null,
-    orbit_abbreviation: mission?.orbit?.abbrev ?? null,
-    perigee_km:         null,
-    apogee_km:          null,
-    inclination_deg:    null,
+    orbit_name:         orb?.name ?? null,
+    orbit_abbreviation: orb?.abbrev ?? null,
+    perigee_km:         coerceFiniteNumber(orb?.perigee),
+    apogee_km:          orbitApogee ?? cfgApogee,
+    inclination_deg:    coerceFiniteNumber(orb?.inclination),
 
   };
 

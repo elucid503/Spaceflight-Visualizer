@@ -56,6 +56,12 @@ export interface LL2Orbit {
   name: string;
   abbrev: string;
 
+  /** Present only if LL2 adds orbital elements to nested orbit objects */
+
+  perigee?: number | string | null;
+  apogee?: number | string | null;
+  inclination?: number | string | null;
+
 }
 
 export interface LL2MissionPatch {
@@ -571,9 +577,9 @@ export interface OrbitSpecifics {
 
   orbit_name: string | null;
   orbit_abbreviation: string | null;
-  perigee_km: null;
-  apogee_km: null;
-  inclination_deg: null;
+  perigee_km: number | null;
+  apogee_km: number | null;
+  inclination_deg: number | null;
 
 }
 
