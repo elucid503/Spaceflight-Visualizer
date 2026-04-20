@@ -268,6 +268,72 @@ def fetch_ll2_all(endpoint, params=None, delay=6):
     print(f"    done — {len(results)} records fetched        ")
     return results
 
+def build_site_location_map(merged_df):
+    """
+    Create a mapping from launch_site codes to (location, lat, lon) tuples.
+    Uses rows where location data is available from LL2 matches.
+    """
+    site_map = {}
+    for idx, row in merged_df.iterrows():
+        site_code = row['launch_site']
+        location = row['ll2_location']
+        lat = row['ll2_lat']
+        lon = row['ll2_lon']
+        
+        # If this site code doesn't have a mapping yet, add it
+        if pd.notna(site_code) and pd.notna(location) and pd.notna(lat) and pd.notna(lon):
+            site_key = str(site_code).strip().upper()
+            if site_key not in site_map:
+                site_map[site_key] = {
+                    'location': location,
+                    'lat': lat,
+                    'lon': lon
+                }
+    return site_map
+
+def find_best_ll2_match(gcat_row, ll2_df):
+    """
+    Find the best matching LL2 record for a GCAT launch.
+    Uses date proximity and vehicle name similarity to score matches.
+    Returns the LL2 index if confident match found, else None.
+    """
+    import difflib
+    
+    gcat_date = gcat_row['launch_date']
+    gcat_vehicle = str(gcat_row['vehicle_name']).lower().strip()
+    
+    best_match_idx = None
+    best_score = 0.0
+    
+    for ll2_idx, ll2_row in ll2_df.iterrows():
+        ll2_date = ll2_row['ll2_date']
+        ll2_name = str(ll2_row['ll2_name']).lower().strip()
+        
+        # Skip if dates missing
+        if pd.isna(gcat_date) or pd.isna(ll2_date):
+            continue
+        
+        # Must be within 1 day
+        date_diff = abs((gcat_date - ll2_date).days)
+        if date_diff > 1:
+            continue
+        
+        # Score based on vehicle name similarity
+        vehicle_ratio = difflib.SequenceMatcher(None, gcat_vehicle, ll2_name).ratio()
+        
+        # Date proximity bonus: exact match = 1.0, 1 day off = 0.7
+        date_score = 1.0 if date_diff == 0 else 0.7
+        
+        # Combined score
+        total_score = vehicle_ratio * date_score
+        
+        if total_score > best_score:
+            best_score = total_score
+            best_match_idx = ll2_idx
+    
+    # Only return match if reasonably confident (>30% similarity)
+    return best_match_idx if best_score > 0.30 else None
+
 def parse_success(code):
 
     c = str(code).strip()
@@ -466,15 +532,72 @@ base = base.rename(columns={
     "Flight_ID":   "flight_id",
 })
 
-merged = base.merge(ll2_df, left_on="launch_date", right_on="ll2_date", how="left")
-print(f"  LL2 matched: {merged['ll2_name'].notna().sum()}/{len(merged)}")
+# Use smart matching instead of simple date merge to avoid duplicating LL2 data
+# across multiple launches on the same day. This matches based on vehicle similarity.
+merged = base.copy()
+
+# Initialize LL2 columns
+for col in ll2_df.columns:
+    if col not in merged.columns:
+        merged[col] = None
+
+# Find best LL2 match for each GCAT launch using vehicle name similarity
+ll2_match_indices = base.apply(lambda row: find_best_ll2_match(row, ll2_df), axis=1)
+
+# Apply matched LL2 data - only one launch per LL2 record
+matched_count = 0
+matched_ll2_indices = set()
+for idx, ll2_idx in ll2_match_indices.items():
+    if pd.notna(ll2_idx):
+        ll2_idx = int(ll2_idx)
+        # Prevent same LL2 record from matching multiple GCAT launches
+        if ll2_idx not in matched_ll2_indices:
+            ll2_row = ll2_df.iloc[ll2_idx]
+            for col in ll2_df.columns:
+                merged.loc[idx, col] = ll2_row[col]
+            matched_ll2_indices.add(ll2_idx)
+            matched_count += 1
+
+print(f"  LL2 matched: {matched_count}/{len(merged)}")
 
 merged["orbit_class"] = merged["orbit_class"].combine_first(merged["ll2_orbit"])
+
+# Consolidate LL2 fields with GCAT fields - remove ll2_ prefixes
+# Mission name: prefer GCAT, fall back to LL2
+merged["mission_name"] = merged["mission_name"].combine_first(merged["ll2_name"])
+
+# Build mapping from launch site codes to coordinates from LL2 matches
+site_map = build_site_location_map(merged)
+
+# Fill missing location and coordinate data using the site mapping
+for idx, row in merged.iterrows():
+    if pd.notna(row['launch_site']):
+        site_key = str(row['launch_site']).strip().upper()
+        if site_key in site_map:
+            # Fill location if missing
+            if pd.isna(row['ll2_location']):
+                merged.loc[idx, 'll2_location'] = site_map[site_key]['location']
+            # Fill coordinates if missing
+            if pd.isna(row['ll2_lat']):
+                merged.loc[idx, 'll2_lat'] = site_map[site_key]['lat']
+            if pd.isna(row['ll2_lon']):
+                merged.loc[idx, 'll2_lon'] = site_map[site_key]['lon']
+
+# Consolidate all LL2 fields into clean column names (no ll2_ prefix)
+# Location data
+merged["location"] = merged["ll2_location"]
+merged["launch_lat"] = merged["ll2_lat"]
+merged["launch_lon"] = merged["ll2_lon"]
+
+# Mission details
+merged["mission_type"] = merged["ll2_mission_type"]
+merged["mission_description"] = merged["ll2_mission_desc"]
+merged["orbit_name"] = merged["ll2_orbit_name"]
 
 # Integrate legacy LL2 fields into primary fields
 merged["launch_pad"] = merged["launch_pad"].combine_first(merged["ll2_pad"])
 
-# For ll2_status, parse and fill missing launch_success values
+# For ll2_status, parse and fill missing launch_success values BEFORE dropping ll2_ columns
 def parse_ll2_status(status):
     if pd.isna(status):
         return None
@@ -485,8 +608,13 @@ def parse_ll2_status(status):
         return False
     return None
 
-missing_success = merged["launch_success"].isna()
-merged.loc[missing_success, "launch_success"] = merged.loc[missing_success, "ll2_status"].apply(parse_ll2_status)
+if "ll2_status" in merged.columns:
+    missing_success = merged["launch_success"].isna()
+    merged.loc[missing_success, "launch_success"] = merged.loc[missing_success, "ll2_status"].apply(parse_ll2_status)
+
+# Drop all ll2_ prefixed columns - they've been consolidated
+ll2_cols_to_drop = [col for col in merged.columns if col.startswith('ll2_')]
+merged = merged.drop(columns=ll2_cols_to_drop)
 
 lox_pattern = r"(?i)^(liquid oxygen|lox)$"
 bad = merged["propellant_1"].str.match(lox_pattern, na=False)
@@ -518,9 +646,9 @@ FINAL_COLS = {
     "lv_state":             "lv_state",
     "launch_site":          "launch_site",
     "launch_pad":           "launch_pad",
-    "ll2_location":         "ll2_location",
-    "ll2_lat":              "launch_lat",
-    "ll2_lon":              "launch_lon",
+    "location":             "location",
+    "launch_lat":           "launch_lat",
+    "launch_lon":           "launch_lon",
     "platform":             "platform",
     "launch_success":       "launch_success",
     "flight_id":            "flight_id",
@@ -528,11 +656,10 @@ FINAL_COLS = {
     "payload_name":         "payload_name",
     "sat_owner":            "sat_owner",
     "sat_state":            "sat_state",
-    "ll2_name":             "ll2_mission_name",
-    "ll2_mission_type":     "mission_type",
-    "ll2_mission_desc":     "mission_description",
+    "mission_type":         "mission_type",
+    "mission_description":  "mission_description",
     "orbit_class":          "orbit_class",
-    "ll2_orbit_name":       "orbit_name",
+    "orbit_name":           "orbit_name",
     "perigee_km":           "perigee_km",
     "apogee_km":            "apogee_km",
     "inclination_deg":      "inclination_deg",
