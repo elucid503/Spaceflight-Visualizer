@@ -34,7 +34,7 @@ QUESTION E — How reliable is the launch industry, and which systems are most p
 
 SUMMARY TABLE:
   Visualization                  | Primary Goal | Chart Type
-  --------------------------------+--------------+---------------------------
+  -------------------------------+--------------+---------------------------
   01 - Commercial Revolution     |      A       | Stacked Area
   02 - Reliability Journey       |    A, E      | Dual-Axis Bar + Line
   03 - Booster Reuse             |    B, E      | Scatter / Dot Plot
@@ -43,7 +43,7 @@ SUMMARY TABLE:
   06 - Price War                 |      B       | Scatter Plot
   07 - Vehicle Family Comparison |    A, E      | Radar Chart (Extension)
   08 - Propellant Shift          |    B, D      | 100% Stacked Area
-  --------------------------------+--------------+---------------------------
+  -------------------------------+--------------+---------------------------
 
 DATA SNAPSHOT (as of April 2026)
 ----------------------------------
