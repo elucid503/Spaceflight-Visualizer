@@ -1,0 +1,301 @@
+Series,Axis,Value
+Angara,Launch Count (Norm),0.96
+Angara,Success Rate (0-100),90.00
+Angara,LEO Capacity (Norm),16.06
+Angara,Annual Cadence (Norm),2.25
+Angara,Orbit Diversity (Norm),18.18
+Antares,Launch Count (Norm),1.64
+Antares,Success Rate (0-100),94.12
+Antares,LEO Capacity (Norm),7.41
+Antares,Annual Cadence (Norm),4.18
+Antares,Orbit Diversity (Norm),4.55
+Ariane,Launch Count (Norm),24.59
+Ariane,Success Rate (0-100),95.29
+Ariane,LEO Capacity (Norm),9.18
+Ariane,Annual Cadence (Norm),14.66
+Ariane,Orbit Diversity (Norm),63.64
+ASLV,Launch Count (Norm),0.39
+ASLV,Success Rate (0-100),50.00
+ASLV,LEO Capacity (Norm),0.16
+ASLV,Annual Cadence (Norm),1.35
+ASLV,Orbit Diversity (Norm),4.55
+Astra Rocket,Launch Count (Norm),0.48
+Astra Rocket,Success Rate (0-100),20.00
+Astra Rocket,LEO Capacity (Norm),0.11
+Astra Rocket,Annual Cadence (Norm),4.50
+Astra Rocket,Orbit Diversity (Norm),9.09
+Athena,Launch Count (Norm),0.68
+Athena,Success Rate (0-100),71.43
+Athena,LEO Capacity (Norm),1.42
+Athena,Annual Cadence (Norm),2.70
+Athena,Orbit Diversity (Norm),13.64
+Atlas,Launch Count (Norm),41.08
+Atlas,Success Rate (0-100),91.31
+Atlas,LEO Capacity (Norm),5.78
+Atlas,Annual Cadence (Norm),16.93
+Atlas,Orbit Diversity (Norm),100.00
+Blue Scout,Launch Count (Norm),0.87
+Blue Scout,Success Rate (0-100),88.89
+Blue Scout,LEO Capacity (Norm),0.03
+Blue Scout,Annual Cadence (Norm),4.05
+Blue Scout,Orbit Diversity (Norm),9.09
+Ceres-1,Launch Count (Norm),1.16
+Ceres-1,Success Rate (0-100),91.67
+Ceres-1,LEO Capacity (Norm),0.37
+Ceres-1,Annual Cadence (Norm),5.41
+Ceres-1,Orbit Diversity (Norm),9.09
+Delta,Launch Count (Norm),28.83
+Delta,Success Rate (0-100),96.32
+Delta,LEO Capacity (Norm),6.76
+Delta,Annual Cadence (Norm),15.54
+Delta,Orbit Diversity (Norm),68.18
+Diamant,Launch Count (Norm),1.16
+Diamant,Success Rate (0-100),83.33
+Diamant,LEO Capacity (Norm),0.17
+Diamant,Annual Cadence (Norm),2.95
+Diamant,Orbit Diversity (Norm),9.09
+Energiya,Launch Count (Norm),0.19
+Energiya,Success Rate (0-100),50.00
+Energiya,LEO Capacity (Norm),93.89
+Energiya,Annual Cadence (Norm),2.70
+Energiya,Orbit Diversity (Norm),4.55
+Epsilon,Launch Count (Norm),0.48
+Epsilon,Success Rate (0-100),100.00
+Epsilon,LEO Capacity (Norm),0.00
+Epsilon,Annual Cadence (Norm),1.50
+Epsilon,Orbit Diversity (Norm),13.64
+Eris,Launch Count (Norm),0.10
+Eris,Success Rate (0-100),0.00
+Eris,LEO Capacity (Norm),0.32
+Eris,Annual Cadence (Norm),2.70
+Eris,Orbit Diversity (Norm),4.55
+Europa,Launch Count (Norm),0.39
+Europa,Success Rate (0-100),0.00
+Europa,LEO Capacity (Norm),0.46
+Europa,Annual Cadence (Norm),2.70
+Europa,Orbit Diversity (Norm),4.55
+Falcon,Launch Count (Norm),55.74
+Falcon,Success Rate (0-100),99.13
+Falcon,LEO Capacity (Norm),24.12
+Falcon,Annual Cadence (Norm),74.39
+Falcon,Orbit Diversity (Norm),68.18
+Firefly Alpha,Launch Count (Norm),0.58
+Firefly Alpha,Success Rate (0-100),50.00
+Firefly Alpha,LEO Capacity (Norm),1.05
+Firefly Alpha,Annual Cadence (Norm),3.24
+Firefly Alpha,Orbit Diversity (Norm),9.09
+GSLV,Launch Count (Norm),2.31
+GSLV,Success Rate (0-100),75.00
+GSLV,LEO Capacity (Norm),4.39
+GSLV,Annual Cadence (Norm),2.59
+GSLV,Orbit Diversity (Norm),13.64
+H-II,Launch Count (Norm),5.30
+H-II,Success Rate (0-100),96.36
+H-II,LEO Capacity (Norm),11.94
+H-II,Annual Cadence (Norm),4.80
+H-II,Orbit Diversity (Norm),36.36
+H3,Launch Count (Norm),0.29
+H3,Success Rate (0-100),100.00
+H3,LEO Capacity (Norm),0.00
+H3,Annual Cadence (Norm),4.05
+H3,Orbit Diversity (Norm),13.64
+HANBIT,Launch Count (Norm),0.19
+HANBIT,Success Rate (0-100),50.00
+HANBIT,LEO Capacity (Norm),0.00
+HANBIT,Annual Cadence (Norm),1.80
+HANBIT,Orbit Diversity (Norm),9.09
+Kaituozhe,Launch Count (Norm),0.39
+Kaituozhe,Success Rate (0-100),25.00
+Kaituozhe,LEO Capacity (Norm),0.11
+Kaituozhe,Annual Cadence (Norm),0.68
+Kaituozhe,Orbit Diversity (Norm),9.09
+Kosmos,Launch Count (Norm),59.88
+Kosmos,Success Rate (0-100),92.75
+Kosmos,LEO Capacity (Norm),0.39
+Kosmos,Annual Cadence (Norm),33.57
+Kosmos,Orbit Diversity (Norm),22.73
+KSLV,Launch Count (Norm),0.68
+KSLV,Success Rate (0-100),57.14
+KSLV,LEO Capacity (Norm),2.74
+KSLV,Annual Cadence (Norm),1.11
+KSLV,Orbit Diversity (Norm),13.64
+Kuaizhou,Launch Count (Norm),3.18
+Kuaizhou,Success Rate (0-100),87.88
+Kuaizhou,LEO Capacity (Norm),0.36
+Kuaizhou,Annual Cadence (Norm),6.86
+Kuaizhou,Orbit Diversity (Norm),18.18
+Little Joe,Launch Count (Norm),1.25
+Little Joe,Success Rate (0-100),53.85
+Little Joe,LEO Capacity (Norm),0.00
+Little Joe,Annual Cadence (Norm),4.39
+Little Joe,Orbit Diversity (Norm),4.55
+Long March,Launch Count (Norm),53.33
+Long March,Success Rate (0-100),96.75
+Long March,LEO Capacity (Norm),6.80
+Long March,Annual Cadence (Norm),28.20
+Long March,Orbit Diversity (Norm),54.55
+Minotaur,Launch Count (Norm),2.80
+Minotaur,Success Rate (0-100),89.66
+Minotaur,LEO Capacity (Norm),1.13
+Minotaur,Annual Cadence (Norm),2.45
+Minotaur,Orbit Diversity (Norm),27.27
+MOMO,Launch Count (Norm),0.39
+MOMO,Success Rate (0-100),25.00
+MOMO,LEO Capacity (Norm),0.00
+MOMO,Annual Cadence (Norm),2.70
+MOMO,Orbit Diversity (Norm),4.55
+Mu,Launch Count (Norm),2.89
+Mu,Success Rate (0-100),86.67
+Mu,LEO Capacity (Norm),0.79
+Mu,Annual Cadence (Norm),2.19
+Mu,Orbit Diversity (Norm),18.18
+New Glenn,Launch Count (Norm),0.10
+New Glenn,Success Rate (0-100),100.00
+New Glenn,LEO Capacity (Norm),47.37
+New Glenn,Annual Cadence (Norm),2.70
+New Glenn,Orbit Diversity (Norm),4.55
+Nodong,Launch Count (Norm),0.77
+Nodong,Success Rate (0-100),50.00
+Nodong,LEO Capacity (Norm),0.00
+Nodong,Annual Cadence (Norm),1.80
+Nodong,Orbit Diversity (Norm),4.55
+Pegasus,Launch Count (Norm),4.44
+Pegasus,Success Rate (0-100),93.48
+Pegasus,LEO Capacity (Norm),0.45
+Pegasus,Annual Cadence (Norm),3.89
+Pegasus,Orbit Diversity (Norm),13.64
+Proton / UR-500,Launch Count (Norm),41.08
+Proton / UR-500,Success Rate (0-100),89.20
+Proton / UR-500,LEO Capacity (Norm),19.91
+Proton / UR-500,Annual Cadence (Norm),18.57
+Proton / UR-500,Orbit Diversity (Norm),63.64
+PSLV,Launch Count (Norm),5.21
+PSLV,Success Rate (0-100),94.44
+PSLV,LEO Capacity (Norm),3.84
+PSLV,Annual Cadence (Norm),4.71
+PSLV,Orbit Diversity (Norm),27.27
+R-36O,Launch Count (Norm),2.22
+R-36O,Success Rate (0-100),91.30
+R-36O,LEO Capacity (Norm),0.00
+R-36O,Annual Cadence (Norm),8.88
+R-36O,Orbit Diversity (Norm),9.09
+R-7,Launch Count (Norm),60.95
+R-7,Success Rate (0-100),92.41
+R-7,LEO Capacity (Norm),2.73
+R-7,Annual Cadence (Norm),33.49
+R-7,Orbit Diversity (Norm),45.45
+Redstone,Launch Count (Norm),1.16
+Redstone,Success Rate (0-100),66.67
+Redstone,LEO Capacity (Norm),0.01
+Redstone,Annual Cadence (Norm),8.11
+Redstone,Orbit Diversity (Norm),18.18
+Rokot,Launch Count (Norm),3.09
+Rokot,Success Rate (0-100),90.63
+Rokot,LEO Capacity (Norm),1.95
+Rokot,Annual Cadence (Norm),3.33
+Rokot,Orbit Diversity (Norm),18.18
+S-Series,Launch Count (Norm),0.10
+S-Series,Success Rate (0-100),0.00
+S-Series,LEO Capacity (Norm),0.00
+S-Series,Annual Cadence (Norm),2.70
+S-Series,Orbit Diversity (Norm),4.55
+Saturn,Launch Count (Norm),3.09
+Saturn,Success Rate (0-100),93.75
+Saturn,LEO Capacity (Norm),69.08
+Saturn,Annual Cadence (Norm),6.65
+Saturn,Orbit Diversity (Norm),18.18
+Scout,Launch Count (Norm),10.51
+Scout,Success Rate (0-100),88.99
+Scout,LEO Capacity (Norm),0.15
+Scout,Annual Cadence (Norm),8.42
+Scout,Orbit Diversity (Norm),22.73
+Shavit,Launch Count (Norm),1.25
+Shavit,Success Rate (0-100),84.62
+Shavit,LEO Capacity (Norm),0.00
+Shavit,Annual Cadence (Norm),0.92
+Shavit,Orbit Diversity (Norm),4.55
+Smart Dragon,Launch Count (Norm),0.87
+Smart Dragon,Success Rate (0-100),100.00
+Smart Dragon,LEO Capacity (Norm),0.16
+Smart Dragon,Annual Cadence (Norm),3.04
+Smart Dragon,Orbit Diversity (Norm),13.64
+Soyuz,Launch Count (Norm),91.71
+Soyuz,Success Rate (0-100),96.85
+Soyuz,LEO Capacity (Norm),7.34
+Soyuz,Annual Cadence (Norm),41.46
+Soyuz,Orbit Diversity (Norm),36.36
+Space Launch System,Launch Count (Norm),0.10
+Space Launch System,Success Rate (0-100),100.00
+Space Launch System,LEO Capacity (Norm),100.00
+Space Launch System,Annual Cadence (Norm),2.70
+Space Launch System,Orbit Diversity (Norm),4.55
+Sputnik,Launch Count (Norm),0.58
+Sputnik,Success Rate (0-100),83.33
+Sputnik,LEO Capacity (Norm),1.47
+Sputnik,Annual Cadence (Norm),2.03
+Sputnik,Orbit Diversity (Norm),4.55
+Starship,Launch Count (Norm),1.83
+Starship,Success Rate (0-100),63.16
+Starship,LEO Capacity (Norm),26.32
+Starship,Annual Cadence (Norm),7.34
+Starship,Orbit Diversity (Norm),4.55
+Start,Launch Count (Norm),0.68
+Start,Success Rate (0-100),85.71
+Start,LEO Capacity (Norm),0.67
+Start,Annual Cadence (Norm),1.35
+Start,Orbit Diversity (Norm),13.64
+Taepodong,Launch Count (Norm),0.77
+Taepodong,Success Rate (0-100),37.50
+Taepodong,LEO Capacity (Norm),0.00
+Taepodong,Annual Cadence (Norm),1.35
+Taepodong,Orbit Diversity (Norm),9.09
+Terran,Launch Count (Norm),0.10
+Terran,Success Rate (0-100),0.00
+Terran,LEO Capacity (Norm),1.56
+Terran,Annual Cadence (Norm),2.70
+Terran,Orbit Diversity (Norm),4.55
+Thor,Launch Count (Norm),31.82
+Thor,Success Rate (0-100),86.36
+Thor,LEO Capacity (Norm),0.32
+Thor,Annual Cadence (Norm),38.78
+Thor,Orbit Diversity (Norm),40.91
+Titan,Launch Count (Norm),21.22
+Titan,Success Rate (0-100),93.18
+Titan,LEO Capacity (Norm),10.13
+Titan,Annual Cadence (Norm),14.16
+Titan,Orbit Diversity (Norm),54.55
+Trailblazer,Launch Count (Norm),0.39
+Trailblazer,Success Rate (0-100),100.00
+Trailblazer,LEO Capacity (Norm),0.00
+Trailblazer,Annual Cadence (Norm),1.54
+Trailblazer,Orbit Diversity (Norm),4.55
+Tsiklon,Launch Count (Norm),22.66
+Tsiklon,Success Rate (0-100),95.74
+Tsiklon,LEO Capacity (Norm),3.67
+Tsiklon,Annual Cadence (Norm),14.77
+Tsiklon,Orbit Diversity (Norm),18.18
+Vega,Launch Count (Norm),2.31
+Vega,Success Rate (0-100),91.67
+Vega,LEO Capacity (Norm),1.97
+Vega,Annual Cadence (Norm),4.63
+Vega,Orbit Diversity (Norm),22.73
+Vostok,Launch Count (Norm),14.46
+Vostok,Success Rate (0-100),92.00
+Vostok,LEO Capacity (Norm),4.32
+Vostok,Annual Cadence (Norm),11.92
+Vostok,Orbit Diversity (Norm),18.18
+Vulcan,Launch Count (Norm),0.19
+Vulcan,Success Rate (0-100),100.00
+Vulcan,LEO Capacity (Norm),20.00
+Vulcan,Annual Cadence (Norm),2.70
+Vulcan,Orbit Diversity (Norm),9.09
+Zenith,Launch Count (Norm),8.10
+Zenith,Success Rate (0-100),86.90
+Zenith,LEO Capacity (Norm),6.10
+Zenith,Annual Cadence (Norm),6.88
+Zenith,Orbit Diversity (Norm),36.36
+Zhuque,Launch Count (Norm),0.48
+Zhuque,Success Rate (0-100),60.00
+Zhuque,LEO Capacity (Norm),8.76
+Zhuque,Annual Cadence (Norm),1.69
+Zhuque,Orbit Diversity (Norm),9.09
