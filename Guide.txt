@@ -1,0 +1,204 @@
+GOALS:
+
+QUESTION 1 — How has the pace and ownership of spaceflight changed over time?
+  Viz 1 (Commercial Revolution), Viz 2 (Reliability Journey), Viz 7 (Vehicle Comparison)
+
+QUESTION 2 — How has reusability changed launch economics?
+  Viz 3 (Booster Reuse), Viz 6 (Price War), Viz 8 (Propellant Shift)
+
+QUESTION 3 — Where is orbital launch capability concentrated?
+  Viz 4 (Global Launch Sites)
+
+QUESTION 4 — What are rockets being used for, and how is the mission mix shifting?
+  Viz 5 (Agency–Orbit Flow), Viz 8 (Propellant Shift)
+
+QUESTION 5 — How reliable is the launch industry, and which systems are most proven?
+  Viz 2 (Reliability Journey), Viz 7 (Vehicle Comparison), Viz 3 (Booster Reuse)
+
+DASHBOARDS:
+
+  This workbook is organized into two dashboards and one standalone
+  interactive Star Chart. Each dashboard targets specific questions.
+
+DASHBOARD 1:
+
+Sheets: 01, 02, 04, 05
+Answers: Who launched? Where from? To which orbits?
+
+DASHBOARD 2:
+
+Sheets: 03, 06, 08
+Answers: How did rockets improve? How much does launching cost?
+
+STAR CHART:
+
+Sheet: Only 07
+Answers: How do major rocket families compare across all dimensions?
+
+DASHBOARD 1 GUIDELINES:
+
+1. Click the "New Dashboard" icon at the bottom tab bar (the grid icon with a plus).
+   Name it: "Dashboard 1 — History & Geography".
+
+2. Set canvas size:
+   Dashboard menu > Size > Fixed > 1920 × 1080.
+   (This ensures consistent rendering; scale down to 1440×900 for laptop screens.)
+
+3. Arrange sheets — use a 2×2 layout:
+   Drag sheets from the left panel into the canvas in this order:
+
+     TOP-LEFT:    01 - Commercial Revolution    (half width, half height)
+     TOP-RIGHT:   04 - Global Launch Sites      (half width, half height)
+     BOTTOM-LEFT: 02 - Reliability Journey      (half width, half height)
+     BOTTOM-RIGHT:05 - Agency–Orbit Flow        (half width, half height)
+
+   To resize: hover over a sheet edge, wait for the double-arrow cursor, drag.
+
+4. Add a title text box:
+   Objects panel (bottom-left of Dashboard pane) > Drag "Text" to the top.
+   Text: "The Space Age in Data: 7,484 Launches, 1957–2026"
+   Font: Bold, 20pt. Height: ~40px. Set background color to #1A1A2E (dark navy).
+   Set text color to white.
+
+5. Add a KPI summary bar (optional but recommended):
+   Drag four more "Text" objects into a horizontal strip below the title.
+   Set each to one key figure:
+     "7,484 Total Launches"  |  "97% Success Rate (2024)"
+     "5 Continents"          |  "Commercial: 70%+ of Launches"
+   Font: 13pt, white on dark background.
+
+6. Add a global Year Range filter:
+   a. Click any sheet on the dashboard > More Options (▾) > Filters > YEAR([Date Utc]).
+   b. The filter card appears. Click its dropdown > Apply to Worksheets >
+      All Using This Data Source.
+   c. In the filter card dropdown, choose "Slider" for a compact range control.
+   d. Drag the filter card to a visible corner (top-right works well).
+
+7. Add a global Agency Type filter (same method):
+   a. Click the "01 - Commercial Revolution" sheet > More Options > Filters >
+      [Agency Type].
+   b. Apply to Worksheets > All Using This Data Source.
+   c. Set display style to "Multiple Values (list)".
+
+8. Enable sheet-level interactivity (cross-filtering):
+   Click the "04 - Global Launch Sites" map sheet on the dashboard.
+   Click the funnel icon (Use as Filter) in the sheet's floating toolbar.
+   Clicking a country on the map will now filter all other sheets.
+   Repeat for "01 - Commercial Revolution" (click a band to filter by agency type).
+
+9. Extension authorization (Viz 05 — Sankey):
+   If the Sankey sheet appears blank, click it on the dashboard > Edit >
+   accept the extension permissions prompt. This must be done each session
+   if the extension has not been pre-approved.
+
+10. Color palette — apply these consistently across all four sheets:
+    SpaceX / Commercial  =  #E84855
+    Government / Soviet  =  #1F5FA6
+    China                =  #F4A261
+    ESA / Europe         =  #4CAF50
+    Recovery / Success   =  #2ECC71
+    Failure              =  #E74C3C
+
+11. Final polish:
+    - Remove individual sheet titles (they clutter the dashboard). Right-click
+      each sheet tab inside the dashboard > uncheck "Show Title".
+    - Add a single floating text label near each sheet identifying it:
+      e.g., "Commercial Share ▸" in 11pt gray, top-left of each panel.
+    - Dashboard menu > Show Dashboard Title: off (title is already in the text box).
+
+DASHBOARD 2:
+
+PURPOSE SUMMARY:
+  • Trace individual booster careers showing how rockets became reusable assets.
+  • Compare launch cost-per-kg across all vehicles and expose the reuse cost break.
+  • Chart the long-run propellant technology shift from toxic hypergolics to methane.
+
+STEP-BY-STEP CREATION:
+
+1. Click the "New Dashboard" icon. Name it: "Dashboard 2 — Reusability & Economics".
+
+2. Set canvas size: Dashboard menu > Size > Fixed > 1920 × 1080.
+
+3. Arrange sheets — use a stacked 1×3 layout (vertical thirds):
+   Three sheets stacked vertically allows each chart its full width for readability.
+
+     TOP (40% height):    03 - Booster Reuse         (full width)
+     MIDDLE (30% height): 06 - Launch Cost vs Capacity  (full width)
+     BOTTOM (30% height): 08 - Propellant Shift         (full width)
+
+   Alternatively, use a 2-column layout if screen real estate is tight:
+     LEFT (60%):  03 - Booster Reuse  (full height)
+     TOP-RIGHT:   06 - Launch Cost vs Capacity
+     BOTTOM-RIGHT:08 - Propellant Shift
+
+4. Add a title text box (same style as Dashboard 1):
+   Text: "The Reusability Revolution: Technology & Launch Economics"
+   Font: Bold, 20pt, white on #1A1A2E. Height ~40px at top.
+
+5. Add a KPI summary bar:
+   "34 Flights — B1067 Record"  |  "5.2-Day Turnaround (2026)"
+   "$2,300/kg — Falcon 9"       |  "Methalox: First launched 2019"
+
+6. Add a global Year filter (same method as Dashboard 1):
+   Filter on YEAR([Date Utc]), apply to All Using This Data Source, use Slider.
+
+7. Add a Vehicle Family filter for cross-sheet filtering:
+   Useful here because Viz 03 (boosters), Viz 06 (vehicles), and Viz 08
+   (propellants) all relate to rocket identity.
+   a. Click the "06 - Launch Cost vs Capacity" sheet.
+   b. More Options > Filters > [Vehicle Family].
+   c. Apply to Worksheets > All Using This Data Source.
+   d. Style: "Multiple Values (dropdown)" to save space.
+
+8. Enable cross-filtering:
+   Click "06 - Launch Cost vs Capacity" on the dashboard.
+   Click the funnel icon (Use as Filter). Clicking a dot will now highlight
+   the corresponding booster career lines in Viz 03 and propellant band in Viz 08.
+
+9. Annotate key milestones directly on the dashboard with floating text objects:
+   - Near Viz 03 at 2017: "First Falcon 9 reuse →"
+   - Near Viz 06 at the Falcon 9 dot: "↑ $2,300/kg benchmark"
+   - Near Viz 08 at 2019: "Methalox debut →"
+   (Use Dashboard > Objects > Text, position as floating.)
+
+10. Color palette — consistent with Dashboard 1:
+    SpaceX / Commercial  =  #E84855
+    Government / Soviet  =  #1F5FA6
+    Methalox             =  #9C27B0
+    Kerosene             =  #1F5FA6
+    Hypergolic           =  #E84855
+    Success / Recovery   =  #2ECC71
+
+11. Final polish:
+    - Hide individual sheet titles (right-click > uncheck Show Title).
+    - On Viz 03, confirm the B1067 annotation is visible at dashboard scale.
+      If it clips, move it: double-click the sheet to enter edit mode, reposition.
+    - On Viz 06, confirm the logarithmic X-axis label is legible at reduced size.
+
+GLOBAL STYLES:
+
+COLOR PALETTE:
+  SpaceX / Commercial  =  #E84855  (red)
+  Government / Soviet  =  #1F5FA6  (blue)
+  China / CASC         =  #F4A261  (orange)
+  ESA / Europe         =  #4CAF50  (green)
+  Recovery / Success   =  #2ECC71  (bright green)
+  Failure              =  #E74C3C  (dark red)
+  Methalox             =  #9C27B0  (purple)
+  Neutral / Unknown    =  #BDBDBD  (gray)
+
+TYPOGRAPHY:
+  Dashboard titles: Bold, 20pt, white on dark background.
+  KPI bar labels:   Regular, 13pt, white.
+  Sheet labels:     Regular, 11pt, #555555 gray.
+  Annotations:      Italic, 10pt, #333333.
+
+BACKGROUND:
+  Canvas background: #F5F5F5 (light gray) or white.
+  Title bar:         #1A1A2E (dark navy).
+
+ENHANCEMENTS:
+  - On Viz 3, add [Days Since Last Flight] to Tooltip to show turnaround per dot.
+  - Add a summary bar at the top of the dashboard with text tiles:
+    "7,484 Total Launches" | "97% Success Rate (2024)" |
+    "34 Flights — Single Booster Record" | "380 Starlink Launches"
